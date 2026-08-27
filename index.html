@@ -107,13 +107,13 @@ function sp(f, s, o) {
 }
 const PRESETS_JS = [
   { n: '公文', d: '党政机关公文（GB/T 9704）：标题二号小标宋居中、行距固定 28 磅，正文三号仿宋，一级黑体/二级楷体/三级仿宋加粗',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sa: 24 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋', 16),
     h1: sp('黑体', 16, { b: false }), h2: sp('楷体', 16, { b: false }),
     h3: sp('仿宋', 16, { b: true }), h4: sp('仿宋', 16),
     pg: { t: 3.7, b: 3.5, l: 2.8, r: 2.6, g: 560 } },
   { n: '呈报文稿', d: '呈报局主要领导文稿：题目二号小标宋，日期行楷体三号，正文小二仿宋_GB2312 固定行距 33 磅',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sa: 12 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋_GB2312', 18, { lv: 33 }),
     h1: sp('黑体', 18, { b: false, lv: 33 }), h2: sp('楷体_GB2312', 18, { b: false, lv: 33 }),
     h3: sp('仿宋_GB2312', 18, { b: true, lv: 33 }), h4: sp('仿宋_GB2312', 18, { lv: 33 }),
@@ -121,7 +121,7 @@ const PRESETS_JS = [
     date: sp('楷体_GB2312', 16, { a: 'center', lm: 'multiple', lv: 1, ic: 0 }),
     pg: { t: 3.6, b: 3.6, l: 2.7, r: 2.7 } },
   { n: '对外行文', d: '对外行文：题目二号小标宋，主送黑体三号，正文三号仿宋_GB2312 单倍行距',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sa: 12 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋_GB2312', 16, { lm: 'multiple', lv: 1 }),
     h1: sp('黑体', 16, { b: false, lm: 'multiple', lv: 1 }),
     h2: sp('楷体_GB2312', 16, { b: false, lm: 'multiple', lv: 1 }),
@@ -130,25 +130,25 @@ const PRESETS_JS = [
     sal: sp('黑体', 16, { a: 'left', lm: 'multiple', lv: 1, ic: 0 }),
     pg: { t: 3.6, b: 3.6, l: 2.7, r: 2.7 } },
   { n: '会议材料', d: '会议材料：汇报题目二号小标宋，正文三号仿宋_GB2312 固定行距 28 磅',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sa: 12 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋_GB2312', 16),
     h1: sp('黑体', 16, { b: false }), h2: sp('楷体_GB2312', 16, { b: false }),
     h3: sp('仿宋_GB2312', 16, { b: true }), h4: sp('仿宋_GB2312', 16),
     pg: { t: 3.6, b: 3.6, l: 2.7, r: 2.7 } },
   { n: '印发规范性文件', d: '印发通知/实施办法/工作动态：题目二号小标宋，正文三号仿宋_GB2312 固定行距 28 磅',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sa: 12 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋_GB2312', 16),
     h1: sp('黑体', 16, { b: false }), h2: sp('楷体_GB2312', 16, { b: false }),
     h3: sp('仿宋_GB2312', 16, { b: true }), h4: sp('仿宋_GB2312', 16),
     pg: { t: 3.6, b: 3.6, l: 2.7, r: 2.7 } },
   { n: '会议纪要', d: '会议纪要：标题二号小标宋居中，正文三号仿宋_GB2312 固定行距 28 磅',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sa: 12 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋_GB2312', 16),
     h1: sp('黑体', 16, { b: false }), h2: sp('楷体_GB2312', 16, { b: false }),
     h3: sp('仿宋_GB2312', 16, { b: true }), h4: sp('仿宋_GB2312', 16),
     pg: { t: 3.7, b: 3.5, l: 2.8, r: 2.6, g: 560 } },
   { n: '讲话稿', d: '领导讲话稿：题目二号小标宋，日期行楷体三号，称呼顶格，正文三号仿宋_GB2312 固定行距 28 磅',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sa: 12 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋_GB2312', 16),
     h1: sp('黑体', 16, { b: false }), h2: sp('楷体_GB2312', 16, { b: false }),
     h3: sp('仿宋_GB2312', 16, { b: true }), h4: sp('仿宋_GB2312', 16),
@@ -156,14 +156,14 @@ const PRESETS_JS = [
     date: sp('楷体_GB2312', 16, { a: 'center', lm: 'multiple', lv: 1, ic: 0 }),
     pg: { t: 3.7, b: 3.5, l: 2.8, r: 2.6, g: 560 } },
   { n: '公函', d: '机关公函：标题二号小标宋，主送机关仿宋三号顶格，正文三号仿宋_GB2312 固定行距 28 磅',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sa: 12 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋_GB2312', 16),
     h1: sp('黑体', 16, { b: false }), h2: sp('楷体_GB2312', 16, { b: false }),
     h3: sp('仿宋_GB2312', 16, { b: true }), h4: sp('仿宋_GB2312', 16),
     sal: sp('仿宋_GB2312', 16, { a: 'left', ic: 0 }),
     pg: { t: 3.7, b: 3.5, l: 2.8, r: 2.6, g: 560 } },
   { n: '学术论文', d: '学术论文：标题三号黑体居中，正文小四宋体 1.5 倍行距，首行缩进 2 字符',
-    t: sp('黑体', 16, { b: false, a: 'center', lm: 'multiple', lv: 1.5, ic: 0, sb: 6, sa: 12 }),
+    t: sp('黑体', 16, { b: false, a: 'center', lm: 'multiple', lv: 1.5, ic: 0 }),  // 段前段后 0
     b: sp('宋体', 12, { lm: 'multiple', lv: 1.5 }),
     h1: sp('黑体', 16, { b: false, a: 'center', lm: 'multiple', lv: 1.5, ic: 0, sb: 12, sa: 6 }),
     h2: sp('黑体', 14, { b: false, a: 'left', lm: 'multiple', lv: 1.5, sb: 6, sa: 3 }),
@@ -171,13 +171,13 @@ const PRESETS_JS = [
     h4: sp('宋体', 12, { b: true, a: 'left', lm: 'multiple', lv: 1.5 }),
     pg: { t: 2.54, b: 2.54, l: 3.17, r: 3.17 } },
   { n: '工作报告', d: '工作报告/总结：标题二号小标宋居中、行距固定 28 磅，正文三号仿宋固定行距 28 磅',
-    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0, sb: 6, sa: 18 }),
+    t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
     b: sp('仿宋', 16),
     h1: sp('黑体', 16, { b: false }), h2: sp('楷体', 16, { b: false }),
     h3: sp('仿宋', 16, { b: true }), h4: sp('仿宋', 16),
     pg: { t: 3.7, b: 3.5, l: 2.8, r: 2.6, g: 560 } },
   { n: '信函', d: '商务信函：标题二号黑体居中，正文小四宋体 1.5 倍行距，称呼顶格',
-    t: sp('黑体', 22, { b: false, a: 'center', lm: 'multiple', lv: 1.5, ic: 0, sa: 18 }),
+    t: sp('黑体', 22, { b: false, a: 'center', lm: 'multiple', lv: 1.5, ic: 0 }),  // 段前段后 0
     b: sp('宋体', 12, { lm: 'multiple', lv: 1.5 }),
     h1: sp('黑体', 12, { b: false, a: 'left', lm: 'multiple', lv: 1.5, ic: 0, sb: 6, sa: 3 }),
     h2: sp('宋体', 12, { b: true, a: 'left', lm: 'multiple', lv: 1.5, ic: 0 }),
