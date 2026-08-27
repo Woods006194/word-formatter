@@ -70,9 +70,10 @@
   <label class="chk"><input type="checkbox" id="optHeadings" checked> 自动识别标题层级</label>
   <label class="chk"><input type="checkbox" id="optTables" checked> 同时处理表格</label>
 
-  <label class="t">导入文档（仅支持 .docx）</label>
-  <div class="drop" id="drop">点击选择 .docx 文档（可多选）</div>
-  <input type="file" id="fileInput" multiple hidden accept=".docx">
+  <label class="t">导入文档（.docx / .docm / .txt / .md / .html）</label>
+  <div class="drop" id="drop">点击选择文档（.docx/.docm/.txt/.md/.html，可多选）</div>
+  <input type="file" id="fileInput" multiple hidden
+         accept=".docx,.docm,.txt,.md,.htm,.html">
   <div id="fileList"></div>
 
   <button class="run" id="btnRun" disabled>开始排版并保存</button>
@@ -443,11 +444,109 @@ function formatDocxXml(xmlString, preset, opts) {
   return { xml: new XMLSerializer().serializeToString(doc), stats };
 }
 
+/* ===================== 文本类文件导入（.txt/.md/.html） ===================== */
+
+// 读取文本文件：先按 UTF-8 解码，失败则回退 GB18030（兼容 GBK）
+async function readTextSmart(file) {
+  const buf = await file.arrayBuffer();
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch (e) {
+    try { return new TextDecoder('gb18030').decode(buf); }
+    catch (e2) { return new TextDecoder('utf-8').decode(buf); }
+  }
+}
+
+function mdToParas(text) {
+  const paras = [];
+  for (const raw of text.split(/\r?\n/)) {
+    let s = raw.trim();
+    if (!s) continue;
+    s = s.replace(/^#{1,6}\s*/, '');        // 标题符号（保留文字交给引擎识别）
+    s = s.replace(/^>\s*/, '');             // 引用
+    s = s.replace(/^[-*+]\s+/, '');         // 无序列表（数字列表保留）
+    s = s.replace(/(\*\*|__|\*|`)(.+?)\1/g, '$2');  // 加粗/斜体/行内代码标记
+    s = s.trim();
+    if (s) paras.push(s);
+  }
+  return paras;
+}
+
+function htmlToParas(htmlText) {
+  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+  doc.querySelectorAll('script,style,noscript').forEach(n => n.remove());
+  const BLOCK = new Set(['p','div','h1','h2','h3','h4','h5','h6','li','br',
+    'blockquote','tr','pre','section','article','header','footer','table',
+    'ul','ol','hr','dd','dt']);
+  const paras = [];
+  let buf = [];
+  const flush = () => {
+    const t = buf.join('').replace(/\s+/g, ' ').trim();
+    if (t) paras.push(t);
+    buf = [];
+  };
+  const walk = node => {
+    for (const child of node.childNodes) {
+      if (child.nodeType === 3) buf.push(child.textContent);
+      else if (child.nodeType === 1) {
+        if (BLOCK.has(child.tagName.toLowerCase())) { flush(); walk(child); flush(); }
+        else walk(child);
+      }
+    }
+  };
+  walk(doc.body);
+  flush();
+  return paras;
+}
+
+// 段落列表 → 最小可用 docx（zip 内存对象），后续复用同一排版流程
+function buildDocxZip(paras) {
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const body = paras.map(t =>
+    '<w:p><w:r><w:t xml:space="preserve">' + esc(t) + '</w:t></w:r></w:p>').join('');
+  const docXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:body>' + body +
+    '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>' +
+    '<w:pgMar w:top="1440" w:right="1800" w:bottom="1440" w:left="1800"/>' +
+    '</w:sectPr></w:body></w:document>';
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+    '</Types>');
+  zip.file('_rels/.rels',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+    '</Relationships>');
+  zip.file('word/_rels/document.xml.rels',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>');
+  zip.file('word/document.xml', docXml);
+  return zip;
+}
+
 /* ===================== 文件处理流程 ===================== */
 async function processFile(file, preset, opts) {
-  const zipIn = await JSZip.loadAsync(await file.arrayBuffer()).catch(() => {
-    throw new Error('文件不是有效的 .docx（可能是旧格式 .doc，请先在电脑上转换）');
-  });
+  const lower = file.name.toLowerCase();
+  let zipIn;
+  if (TEXT_EXTS.some(e => lower.endsWith(e))) {
+    const text = await readTextSmart(file);
+    let paras;
+    if (lower.endsWith('.md')) paras = mdToParas(text);
+    else if (lower.endsWith('.htm') || lower.endsWith('.html')) paras = htmlToParas(text);
+    else paras = text.split(/\r?\n/).map(s => s.trimEnd());
+    if (!paras.some(p => p.trim())) throw new Error('文件内容为空');
+    zipIn = buildDocxZip(paras);
+  } else {
+    zipIn = await JSZip.loadAsync(await file.arrayBuffer()).catch(() => {
+      throw new Error('文件不是有效的 .docx（可能是旧格式 .doc，请先在电脑上转换）');
+    });
+  }
   const entry = zipIn.file('word/document.xml');
   if (!entry) throw new Error('文件缺少 word/document.xml，不是有效的 .docx');
   const xmlString = await entry.async('string');
@@ -510,10 +609,18 @@ function renderList() {
   $('btnRun').disabled = files.length === 0;
 }
 
+// 浏览器端支持的扩展名（.doc/.wps/.rtf/.odt/.pdf 需电脑端处理）
+const LOCAL_EXTS = ['.docx', '.docm', '.txt', '.md', '.htm', '.html'];
+const TEXT_EXTS = ['.txt', '.md', '.htm', '.html'];
+
 function addFiles(fileList) {
   for (const f of fileList) {
     const lower = f.name.toLowerCase();
-    if (!lower.endsWith('.docx')) { alert('仅支持 .docx：' + f.name); continue; }
+    if (!LOCAL_EXTS.some(e => lower.endsWith(e))) {
+      alert('手机/网页版暂不支持该格式：' + f.name +
+            '\n（.doc/.wps/.rtf/.odt/.pdf 请用电脑端程序处理，或先另存为 .docx）');
+      continue;
+    }
     if (!files.some(x => x.name === f.name && x.size === f.size)) files.push(f);
   }
   renderList();
