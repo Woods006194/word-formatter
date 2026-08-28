@@ -46,11 +46,10 @@
 <body>
 <header>
   <h1>Word 文档智能排版 · 网页版</h1>
-  <p>全部在浏览器本地处理 ｜ 无需安装、文档不上传服务器</p>
+  <p>全部在浏览器本地处理 ｜ 无需上传服务器、文档不出设备</p>
 </header>
 
 <div id="errBar"></div>
-
 
 
 <div class="card">
@@ -70,6 +69,7 @@
   <label class="t">处理选项</label>
   <label class="chk"><input type="checkbox" id="optHeadings" checked> 自动识别标题层级</label>
   <label class="chk"><input type="checkbox" id="optTables" checked> 同时处理表格</label>
+  <label class="chk"><input type="checkbox" id="optCleanup" checked> 清理多余空行与空格并补齐标准空行</label>
 
   <label class="t">导入文档（.docx / .docm / .txt / .md / .html）</label>
   <div class="drop" id="drop">点击选择或将文档拖拽到此处（.docx/.docm/.txt/.md/.html，可多选）</div>
@@ -391,6 +391,59 @@ function formatDocxXml(xmlString, preset, opts) {
   let seenTitle = false, bodyStarted = false, titleP = null;
   const stats = { title: 0, headings: 0, body: 0, other: 0 };
 
+  // ---- 空白规范化：删除多余空行/空格（标准所需空行随后按预设补入）----
+  const isCjk = c => { const n = c.codePointAt(0);
+    return (n >= 0x4e00 && n <= 0x9fff) || (n >= 0x3400 && n <= 0x4dbf)
+        || (n >= 0xf900 && n <= 0xfaff); };
+  function cleanOps(text) {
+    // 段首/段尾空白删除；汉字间空白删除；其余连续空白压缩为一个半角空格
+    const ops = []; let i = 0; const n = text.length;
+    while (i < n && /\s/.test(text[i])) i++;
+    let lastKept = '';
+    while (i < n) {
+      const ch = text[i];
+      if (/\s/.test(ch)) {
+        let j = i; while (j < n && /\s/.test(text[j])) j++;
+        if (j >= n) break;                                   // 段尾空白 → 删除
+        const nxt = text[j];
+        if (!(lastKept && isCjk(lastKept) && isCjk(nxt))) ops.push([null, ' ']);
+        i = j;
+      } else { ops.push([i, ch]); lastKept = ch; i++; }
+    }
+    return ops;
+  }
+  function cleanRuns(p) {
+    const runs = kids(p, 'r');
+    const oldTexts = runs.map(runText);
+    const old = oldTexts.join('');
+    const ops = cleanOps(old);
+    const cleaned = ops.map(o => o[1]).join('');
+    if (cleaned === old) return cleaned;
+    const bounds = []; let pos = 0;
+    oldTexts.forEach(t => { bounds.push([pos, pos + t.length]); pos += t.length; });
+    const newT = runs.map(() => '');
+    let lastRun = 0;
+    for (const [src, ch] of ops) {
+      if (src === null) { newT[lastRun] += ch; continue; }
+      let idx = lastRun;
+      while (idx < bounds.length - 1 && src >= bounds[idx][1]) idx++;
+      newT[idx] += ch; lastRun = idx;
+    }
+    runs.forEach((r, k) => { if (oldTexts[k] !== newT[k]) setRunText(r, newT[k]); });
+    return cleaned;
+  }
+  if (opts.cleanup) {
+    let removedBlank = 0;
+    for (const p of Array.from(bodyEl.children)) {
+      if (p.localName !== 'p' || p.namespaceURI !== W_NS) continue;
+      if (!cleanRuns(p)) { p.parentNode.removeChild(p); removedBlank++; }  // 多余空行
+    }
+    stats.other += removedBlank;
+    for (const tbl of bodyEl.getElementsByTagNameNS(W_NS, 'tbl')) {
+      for (const p of tbl.getElementsByTagNameNS(W_NS, 'p')) cleanRuns(p);
+    }
+  }
+
   for (const p of Array.from(bodyEl.children)) {
     if (p.localName !== 'p' || p.namespaceURI !== W_NS) continue;
     const text = paraText(p);
@@ -702,7 +755,8 @@ $('btnRun').addEventListener('click', async () => {
   const base = PRESETS_JS.find(p => p.n === $('preset').value);
   const variant = $('variantRow').style.display !== 'none' ? $('variant').value : null;
   const preset = resolveVariant(base, variant);
-  const opts = { headings: $('optHeadings').checked, tables: $('optTables').checked };
+  const opts = { headings: $('optHeadings').checked, tables: $('optTables').checked,
+    cleanup: $('optCleanup').checked };
   $('btnRun').disabled = true;
   $('btnRun').textContent = '处理中…';
   busy = true;
