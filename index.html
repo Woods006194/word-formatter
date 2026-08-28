@@ -22,6 +22,7 @@
   .drop { margin-top:8px; border:2px dashed #b9c6d8; border-radius:8px;
           padding:22px 12px; text-align:center; color:#7b8aa0;
           cursor:pointer; font-size:14px; }
+  .drop.over { border-color:var(--main); background:#f0f5fc; color:var(--main); }
   .fitem { display:flex; justify-content:space-between; align-items:center;
            padding:8px 4px; border-bottom:1px solid #eef1f5; font-size:13px; }
   .fitem .ops { display:flex; align-items:center; flex:none; margin-left:8px; }
@@ -71,7 +72,7 @@
   <label class="chk"><input type="checkbox" id="optTables" checked> 同时处理表格</label>
 
   <label class="t">导入文档（.docx / .docm / .txt / .md / .html）</label>
-  <div class="drop" id="drop">点击选择文档（.docx/.docm/.txt/.md/.html，可多选）</div>
+  <div class="drop" id="drop">点击选择或将文档拖拽到此处（.docx/.docm/.txt/.md/.html，可多选）</div>
   <input type="file" id="fileInput" multiple hidden
          accept=".docx,.docm,.txt,.md,.htm,.html">
   <div id="fileList"></div>
@@ -657,6 +658,15 @@ function saveBlob(blob, name) {
 
 $('drop').addEventListener('click', () => $('fileInput').click());
 $('fileInput').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+// 拖拽导入：拖入高亮，松手后加入文件列表；
+// 页面其他位置拖入时拦截默认行为，避免浏览器直接打开文件。
+['dragenter', 'dragover'].forEach(ev =>
+  $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev =>
+  $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', e => { e.preventDefault(); addFiles(e.dataTransfer.files); });
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
 
 $('btnRun').addEventListener('click', async () => {
   const base = PRESETS_JS.find(p => p.n === $('preset').value);
