@@ -46,7 +46,7 @@
 <body>
 <header>
   <h1>Word 文档智能排版 · 网页版</h1>
-  <p>全部在您的浏览器本地处理 ｜ 免安装、免上传、文档不出设备</p>
+  <p>全部在浏览器本地处理 ｜ 无需安装、文档不上传服务器</p>
 </header>
 
 <div id="errBar"></div>
@@ -109,6 +109,7 @@ function sp(f, s, o) {
 const PRESETS_JS = [
   { n: '公文', d: '党政机关公文（GB/T 9704）：标题二号小标宋居中、行距固定 28 磅，正文三号仿宋，一级黑体/二级楷体/三级仿宋加粗',
     t: sp('方正小标宋简体', 22, { b: false, a: 'center', ic: 0 }),  // 段前段后 0
+    blank: sp('仿宋', 10.5, { b: false, a: 'left', lm: 'multiple', lv: 1, ic: 0 }),  // 标题后空一行：5号单倍行距
     b: sp('仿宋', 16),
     h1: sp('黑体', 16, { b: false }), h2: sp('楷体', 16, { b: false }),
     h3: sp('仿宋', 16, { b: true }), h4: sp('仿宋', 16),
@@ -186,7 +187,7 @@ const PRESETS_JS = [
     h4: sp('宋体', 12, { a: 'left', lm: 'multiple', lv: 1.5, ic: 0 }),
     pg: { t: 2.54, b: 2.54, l: 2.8, r: 2.6 } },
   { n: '通用默认', d: '通用格式：标题小二黑体居中，正文小四宋体 1.5 倍行距，首行缩进 2 字符',
-    t: sp('黑体', 18, { b: false, a: 'center', lm: 'multiple', lv: 1.5, ic: 0, sb: 6, sa: 12 }),
+    t: sp('黑体', 18, { b: false, a: 'center', lm: 'multiple', lv: 1.5, ic: 0 }),  // 段前段后 0
     b: sp('宋体', 12, { lm: 'multiple', lv: 1.5 }),
     h1: sp('黑体', 15, { b: false, a: 'left', lm: 'multiple', lv: 1.5, ic: 0, sb: 9, sa: 6 }),
     h2: sp('黑体', 13, { b: false, a: 'left', lm: 'multiple', lv: 1.5, ic: 0, sb: 6, sa: 3 }),
@@ -200,7 +201,7 @@ function resolveVariant(preset, variant) {
   // 仿宋子版本切换：将预设中所有仿宋系字体替换为所选版本
   if (FANGSONG_VARIANTS.indexOf(variant) < 0) return preset;
   const out = JSON.parse(JSON.stringify(preset));
-  ['t', 'b', 'h1', 'h2', 'h3', 'h4', 'sal', 'date'].forEach(k => {
+  ['t', 'b', 'h1', 'h2', 'h3', 'h4', 'sal', 'date', 'blank'].forEach(k => {
     if (out[k] && FANGSONG_VARIANTS.indexOf(out[k].f) >= 0) out[k].f = variant;
   });
   return out;
@@ -336,6 +337,21 @@ function formatDocxXml(xmlString, preset, opts) {
     }
     // 段内字体
     kids(p, 'r').forEach(r => setRunFont(r, spec));
+    // 段落标记格式（pPr/rPr）：使空段落的字体字号与规范一致
+    const mark = (() => {
+      let m = firstKid(pPr, 'rPr');
+      if (!m) { m = el('rPr'); insertOrdered(pPr, m, 'rPr'); }
+      return m;
+    })();
+    ['rFonts', 'sz', 'szCs'].forEach(n => { const o = firstKid(mark, n); if (o) mark.removeChild(o); });
+    const halfPt = String(Math.round(spec.s * 2));
+    const msz = el('sz'); msz.setAttribute('w:val', halfPt);
+    const mszCs = el('szCs'); mszCs.setAttribute('w:val', halfPt);
+    const mrf = el('rFonts');
+    mrf.setAttribute('w:ascii', spec.en); mrf.setAttribute('w:hAnsi', spec.en);
+    mrf.setAttribute('w:cs', spec.en); mrf.setAttribute('w:eastAsia', spec.f);
+    const mref = mark.firstChild;
+    mark.insertBefore(mrf, mref); mark.insertBefore(msz, mref); mark.insertBefore(mszCs, mref);
   }
 
   function splitParagraphAt(p, index) {
@@ -372,7 +388,7 @@ function formatDocxXml(xmlString, preset, opts) {
   const isLetter = preset.n === '信函';
   const hasDate = !!preset.date;
   const bodySpec = preset.b;
-  let seenTitle = false, bodyStarted = false;
+  let seenTitle = false, bodyStarted = false, titleP = null;
   const stats = { title: 0, headings: 0, body: 0, other: 0 };
 
   for (const p of Array.from(bodyEl.children)) {
@@ -384,7 +400,7 @@ function formatDocxXml(xmlString, preset, opts) {
       ? classify(text, !seenTitle, isLetter, !bodyStarted, hasDate)
       : (!seenTitle && text.trim().length <= TITLE_MAX_LEN ? 'title' : 'body');
 
-    if (role === 'title') { applySpec(p, preset.t); seenTitle = true; stats.title++; }
+    if (role === 'title') { applySpec(p, preset.t); seenTitle = true; titleP = p; stats.title++; }
     else if (role === 'h1') { applySpec(p, preset.h1); seenTitle = true; stats.headings++; }
     else if (role === 'h2') { applySpec(p, preset.h2); seenTitle = true; stats.headings++; }
     else if (role === 'h2_inline') {
@@ -404,6 +420,20 @@ function formatDocxXml(xmlString, preset, opts) {
       stats.other++;
     }
     else { applySpec(p, bodySpec); seenTitle = true; bodyStarted = true; stats.body++; }
+  }
+
+  // 标题后空行（如公文：标题与正文之间空一行，5号单倍行距）
+  if (preset.blank && titleP) {
+    const nxt = titleP.nextElementSibling;
+    if (nxt && nxt.localName === 'p' && nxt.namespaceURI === W_NS) {
+      if (!paraText(nxt).trim()) applySpec(nxt, preset.blank);
+      else {
+        const np = el('p');
+        titleP.parentNode.insertBefore(np, nxt);
+        applySpec(np, preset.blank);
+      }
+      stats.other++;
+    }
   }
 
   // 表格段落
